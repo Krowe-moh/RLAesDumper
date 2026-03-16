@@ -37,33 +37,69 @@
 
         return Convert.ToBase64String(r);
     }
-
-    static int FindSig(byte[] data, byte[] sig)
+    
+    static int FindPattern(byte[] data, string pattern)
     {
-        for (int i = 0; i < data.Length - sig.Length; i++)
-        {
-            bool ok = true;
-            for (int j = 0; j < sig.Length; j++)
-                if (data[i + j] != sig[j]) { ok = false; break; }
+        string[] tokens = pattern.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            if (ok) return i;
+        byte?[] sig = new byte?[tokens.Length];
+
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            if (tokens[i] == "??" || tokens[i] == "?")
+                sig[i] = null;
+            else
+                sig[i] = Convert.ToByte(tokens[i], 16);
         }
+
+        for (int i = 0; i <= data.Length - sig.Length; i++)
+        {
+            bool match = true;
+
+            for (int j = 0; j < sig.Length; j++)
+            {
+                if (sig[j].HasValue && data[i + j] != sig[j].Value)
+                {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match)
+                return i;
+        }
+
         return -1;
     }
 
     static void Main()
     {
-        var data = File.ReadAllBytes(@"C:\Program Files\Epic Games\rocketleague\Binaries\Win64\RocketLeague.exe");
+        Console.Write("Enter RocketLeague Binary path: ");
+        string? input = Console.ReadLine();
 
-        byte[] startSig = { 0x40,0x55,0x48,0x8D,0xAC,0x24,0xC0,0x3C,0xFF,0xFF,0xB8,0x40,0xC4,0x00,0x00 };
-        byte[] endSig   = { 0x48,0x81,0xC4,0x40,0xC4,0x00,0x00,0x5D,0xC3 };
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            Console.WriteLine("Invalid path.");
+            return;
+        }
 
-        int start = FindSig(data, startSig);
-        int end   = FindSig(data, endSig) + endSig.Length;
+        string path = input.Trim('"');
+
+        if (!File.Exists(path))
+        {
+            Console.WriteLine("File not found.");
+            return;
+        }
+
+        var data = File.ReadAllBytes(path);
+        // 0x15D230 - 0x17AD0B
+        int start = FindPattern(data, "75 E8 C7 85 ?? ?? ?? ?? C1 83 2A 9E 48 8D 8D ?? ?? ?? ??");
+        int end   = FindPattern(data, "48 C7 85 ?? ?? ?? ?? 00 00 00 00 E8 ?? ?? ?? ?? 48 8D ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 8D ?? ?? ?? ?? 48 33 CC E8 ?? ?? ?? ?? 48 81 C4 40 C4 00 00 5D C3");;
 
         if (start < 0 || end < 0)
         {
-            Console.WriteLine("Signature not found"); // 0x15D230 - 0x17AD0B
+            // if invalid just search for this constant 0x9E2A83C1 (Main key)
+            Console.WriteLine("Signature not found");
             return;
         }
 

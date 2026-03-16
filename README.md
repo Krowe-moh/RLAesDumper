@@ -1,6 +1,6 @@
 # RLAesDumper
 Rocket League AES dumper
 
-Change the hardcoded rocket league path
+Run then enter rocket league exe path
 
 may break once EAC is released
